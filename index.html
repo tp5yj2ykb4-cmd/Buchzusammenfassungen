@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FCFBF6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Halbe Stunde">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>Halbe Stunde</title>
+<style>
+:root{
+  --papier:#FCFBF6; --tinte:#1C1B17; --grau:#6E6A5E; --linie:#E6E2D6;
+  --gelb:#EFC319; --gelb-dunkel:#C79F06; --hinweis:#FBF3D0; --karte:#fff; --rot:#A33A2B;
+  --serif:'Charter','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --spalte:620px;
+}
+/* touch-action wird nicht vererbt, deshalb auf alles: verhindert das
+   Hineinzoomen bei schnellem Doppeltippen in Safari */
+*{box-sizing:border-box;touch-action:manipulation}
+html,body{margin:0;background:var(--papier);color:var(--tinte);font-family:var(--serif);-webkit-text-size-adjust:100%}
+button{font-family:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+.spalte{max-width:var(--spalte);margin:0 auto;
+  padding:calc(48px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+.marke{width:44px;height:8px;background:var(--gelb);margin-bottom:20px}
+.kopf{margin-bottom:36px}
+.kopf h1{font-size:30px;margin:0 0 6px;font-weight:700}
+.unter{margin:0;font-size:16px;color:var(--grau);line-height:1.5}
+.banner{border:1px solid var(--gelb-dunkel);background:var(--hinweis);padding:12px 14px;margin-bottom:20px;font-size:14px;line-height:1.5}
+.banner .knoepfe{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.klein{background:none;border:1px solid var(--linie);padding:10px 16px;font-size:14px;color:var(--grau)}
+.banner .klein{background:var(--karte);border-color:var(--gelb-dunkel);color:var(--tinte)}
+.klein.gefahr{color:var(--rot);border-color:var(--rot)}
+.haupt{width:100%;background:var(--gelb);border:none;padding:13px 0;font-size:16px;font-weight:700}
+.haupt:disabled{background:var(--linie)}
+.notiz{margin:12px 0 0;font-size:13px;color:var(--grau);line-height:1.5}
+
+/* Eingabe — Felder mindestens 16px, sonst zoomt Safari beim Antippen hinein */
+.eingabe{border:1px solid var(--linie);background:var(--karte);padding:18px;margin-bottom:40px}
+.eingabe input{width:100%;border:none;padding:10px 2px;font-family:var(--serif);font-size:18px;background:transparent;outline:none;color:var(--tinte);border-radius:0}
+.eingabe input.titel{border-bottom:1px solid var(--linie)}
+.eingabe input.autor{font-size:16px;margin-bottom:14px}
+.laenge{display:flex;border:1px solid var(--linie);margin-bottom:14px}
+.laenge button{flex:1;background:none;border:none;padding:10px 0;font-size:15px;color:var(--grau)}
+.laenge button+button{border-left:1px solid var(--linie)}
+.laenge button.an{background:var(--tinte);color:var(--papier)}
+
+/* Regal */
+.regal-titel{font-size:14px;font-weight:400;color:var(--grau);margin:0 0 4px;border-bottom:1px solid var(--linie);padding-bottom:10px}
+.eintrag{display:flex;gap:14px;align-items:stretch;border-bottom:1px solid var(--linie);padding:16px 0}
+.eintrag .ruecken{width:8px;background:var(--gelb);flex-shrink:0}
+.eintrag .ruecken.gelesen{background:var(--linie)}
+.eintrag .info{flex:1;cursor:pointer;min-width:0}
+.eintrag .t{font-size:18px;font-weight:700;line-height:1.3}
+.eintrag .a{font-size:14px;color:var(--grau);font-style:italic;margin:2px 0 6px}
+.eintrag .m{font-size:13px;color:var(--grau)}
+.eintrag .weg{background:none;border:none;color:var(--grau);font-size:20px;padding:0 6px;align-self:center}
+.eintrag .frage{display:flex;flex-direction:column;gap:6px;align-self:center}
+.eintrag .frage .klein{padding:6px 10px;font-size:13px}
+.leer{color:var(--grau);font-size:15px;line-height:1.6}
+.fuss{margin-top:48px;font-size:14px}
+.fuss button{background:none;border:none;padding:0;color:var(--grau);text-decoration:underline;font-size:14px}
+
+/* Einstellungen */
+.einst{border:1px solid var(--linie);background:var(--karte);padding:18px;margin-top:16px}
+.einst h2{font-size:18px;margin:0 0 12px}
+.einst label{display:block;font-size:13px;color:var(--grau);margin-bottom:4px}
+.einst input{width:100%;border:1px solid var(--linie);padding:10px;font-size:16px;font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--papier);color:var(--tinte);border-radius:0;outline:none}
+.einst p{font-size:14px;line-height:1.5;margin:10px 0}
+.einst .knoepfe{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.einst .knoepfe .haupt{width:auto;padding:11px 18px;font-size:15px}
+.meldung{font-size:14px;line-height:1.5;margin-top:12px}
+.meldung.gut{color:#3B6B2A}
+.meldung.schlecht{color:var(--rot)}
+
+/* Generierung */
+.gen h1{font-size:26px;margin:0 0 6px;font-weight:700}
+.gen .status{margin:0 0 28px;color:var(--grau);font-size:15px}
+.balken{height:6px;background:var(--linie);margin-bottom:28px}
+.balken div{height:6px;background:var(--gelb);transition:width .4s}
+.kap{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--linie);font-size:15px;align-items:baseline}
+.kap .nr{width:20px;color:var(--grau);flex-shrink:0}
+.kap.fertig .nr{color:var(--gelb-dunkel)}
+.kap.offen .t{color:var(--grau)}
+.kap.fehler .nr,.kap.fehler .t{color:var(--rot)}
+.gen .unten{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+.gen .unten .haupt{width:auto;padding:11px 20px;font-size:15px}
+
+/* Lesen */
+.leiste{position:fixed;top:0;left:0;right:0;z-index:10;background:var(--papier);border-bottom:1px solid var(--linie);padding-top:env(safe-area-inset-top)}
+.leiste .zeile{display:flex;align-items:center;justify-content:space-between;padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}
+.leiste button{background:none;border:none;font-size:15px;padding:4px 0}
+.leiste .werkzeug{display:flex;gap:4px;align-items:center}
+.leiste .werkzeug button{border:1px solid var(--linie);padding:6px 10px;font-size:14px;min-width:38px}
+.leiste .werkzeug button.gross{font-size:17px;padding:4px 10px}
+.leiste .rest{font-size:12px;color:var(--grau);padding:4px max(16px,env(safe-area-inset-right)) 6px max(16px,env(safe-area-inset-left))}
+.leiste .spur{height:3px;background:var(--linie)}
+.leiste .spur div{height:3px;background:var(--gelb);transition:width .2s}
+article{max-width:var(--spalte);margin:0 auto;
+  padding:calc(104px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+/* Gerade vorgelesener Absatz */
+article .vor{background:var(--hinweis);box-shadow:0 0 0 8px var(--hinweis)}
+.kapneu{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.kapneu.laeuft{font-size:14px;color:var(--grau);font-style:italic}
+.textknopf{background:none;border:none;padding:4px 0;font-size:13px;color:var(--grau);text-decoration:underline}
+.textknopf:disabled{opacity:.4;text-decoration:none}
+.banner.gut{border-color:#7FA36A;background:#EEF5E8}
+.regalwerkzeug{display:flex;gap:8px;margin:12px 0 4px}
+.regalwerkzeug input,.regalwerkzeug select{font-family:var(--serif);font-size:16px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);padding:8px 10px;border-radius:0;-webkit-appearance:none;appearance:none}
+.regalwerkzeug input{flex:1;min-width:0}
+.modellwahl{display:flex;border:1px solid var(--linie);margin:6px 0 4px}
+.modellwahl button{flex:1;background:none;border:none;padding:10px 6px;font-size:14px;color:var(--grau);text-align:center;line-height:1.3}
+.modellwahl button+button{border-left:1px solid var(--linie)}
+.modellwahl button.an{background:var(--tinte);color:var(--papier)}
+article header{margin-bottom:40px}
+article h1{font-size:32px;line-height:1.15;margin:0 0 8px;font-weight:700}
+article .autor{margin:0 0 14px;font-size:17px;color:var(--grau);font-style:italic}
+article .kern{margin:0;font-size:17px;line-height:1.55;border-left:3px solid var(--gelb);padding-left:14px}
+article .meta{margin:16px 0 0;font-size:13px;color:var(--grau)}
+article section{margin-bottom:44px}
+article h2{font-size:21px;line-height:1.3;margin:0 0 14px;font-weight:700}
+article h2 span{color:var(--gelb-dunkel);margin-right:10px}
+article section p{font-size:var(--lese,17px);line-height:1.65;margin:0 0 14px;hyphens:auto;-webkit-hyphens:auto}
+article footer{border-top:1px solid var(--linie);padding-top:20px;font-size:13px;color:var(--grau);line-height:1.5}
+article footer .knoepfe{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+/* ================= Grundwerte ================= */
+const KEY = "hs-v1";             // Präfix für alles in localStorage
+const ET = "et-standalone-v1";   // English Trainer: dessen Key wird mitbenutzt
+const WPM = 220;                 // Lesegeschwindigkeit Wörter/Minute
+const WORTE_JE_KAPITEL = 550;
+const LAENGEN = [[15, 6], [30, 11], [45, 17]];   // Minuten → Kapitelzahl
+/* Wählbar für Anthropic-Keys. Preise je Mio. Token (Stand 2026-10): Opus 5.5 4 $ / 20 $,
+   Sonnet 5.5 2 $ / 10 $. Beide denken immer mit, gesteuert wird über effort. */
+const CLAUDE_MODELLE = [
+  { id: "claude-opus-5-5", name: "Opus 5.5", info: "beste Qualität · grob 0,50 $" },
+  { id: "claude-sonnet-5-5", name: "Sonnet 5.5", info: "halber Preis · grob 0,25 $" }
+];
+const SCHRIFTEN = [15, 17, 19, 21, 23];
+const TEMPI = [1, 1.15, 1.3, 0.9];
+const ZEITLIMIT_MS = 180000;     // eine Anfrage, die so lange hängt, gilt als verloren
+
+const SYSTEM = "Du schreibst ausführliche, gut lesbare deutsche Buchzusammenfassungen. "
+  + "Du gibst Inhalte in eigenen Worten wieder und zitierst nie wörtlich. "
+  + "Du erfindest nichts: Wo du dir bei Einzelheiten unsicher bist, bleibst du allgemeiner, statt Namen, Zahlen oder Beispiele zu erfinden.";
+
+const GLIEDERUNG_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["bekannt", "titel", "autor", "kategorie", "kernaussage", "kapitel"],
+  properties: {
+    bekannt: { type: "boolean" }, titel: { type: "string" }, autor: { type: "string" },
+    kategorie: { type: "string" }, kernaussage: { type: "string" },
+    kapitel: { type: "array", items: { type: "object", additionalProperties: false,
+      required: ["titel", "fokus"], properties: { titel: { type: "string" }, fokus: { type: "string" } } } }
+  }
+};
+
+/* ================= Zustand ================= */
+const S = {
+  ansicht: "bibliothek",   // bibliothek | generieren | lesen
+  index: [], titel: "", autor: "", minuten: 30, fehler: "",
+  job: null,               // laufende oder unterbrochene Zusammenfassung, liegt auch in localStorage
+  laeuft: false, lauf: 0,  // lauf zählt hoch, damit ein abgebrochener Durchgang nichts mehr schreibt
+  autoWeiter: false,
+  buch: null, loeschFrage: null, verwerfFrage: false,
+  einst: false, keyMeldung: "", keyGut: false, keyTest: false,
+  hinweis: "",             // Erfolgsmeldung im Regal (Sicherung, Einspielen)
+  suche: "", sort: "neu", gesichert: "",
+  schrift: 17,             // Schriftgröße im Lesemodus
+  neuFrage: null, neuKap: null, neuFehler: null   // Kapitel neu schreiben
+};
+let apiKey = "", keyQuelle = "", gModel = "", ohneFallback = false, wakeLock = null;
+let claudeModell = CLAUDE_MODELLE[0].id;
+let letztesModell = "";    // welches Modell die letzte Antwort tatsächlich geschrieben hat
+
+/* ================= Helfer ================= */
+const $ = (id) => document.getElementById(id);
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function wortzahl(t) { return String(t || "").trim().split(/\s+/).filter(Boolean).length; }
+function zahl(n) { return Number(n || 0).toLocaleString("de-DE"); }
+function pause(ms) { return new Promise((r) => setTimeout(r, ms)); }
+function heute() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function datumDe(iso) { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ""); return m ? m[3] + "." + m[2] + "." + m[1] : (iso || ""); }
+function anzahlFuer(min) { const l = LAENGEN.find((x) => x[0] === min); return l ? l[1] : 11; }
+function buchRef(j) { return j.autor ? "„" + j.titel + "“ von " + j.autor : "„" + j.titel + "“"; }
+
+/* ================= Speicher ================= */
+function lies(k, fb) {
+  try { const r = localStorage.getItem(KEY + ":" + k); return r == null ? fb : JSON.parse(r); }
+  catch (e) { return fb; }
+}
+/* Gibt false zurück, wenn der Speicher voll ist (ca. 5 MB, reicht für rund 50 Bücher). */
+function schreib(k, v) {
+  try { localStorage.setItem(KEY + ":" + k, JSON.stringify(v)); return true; }
+  catch (e) { console.error("Speichern fehlgeschlagen", k, e); return false; }
+}
+function entferne(k) { try { localStorage.removeItem(KEY + ":" + k); } catch (e) {} }
+function speicherBelegt() {
+  let n = 0;
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(KEY + ":")) n += k.length + (localStorage.getItem(k) || "").length; } }
+  catch (e) {}
+  return n * 2; // UTF-16
+}
+
+/* ================= API-Key ================= */
+/* Ein Key besteht nur aus sichtbaren ASCII-Zeichen. Unsichtbare Zeichen aus dem
+   Kopieren werden still entfernt, alles andere wird benannt — sonst bricht fetch
+   ab, bevor die Anfrage rausgeht, und es sieht aus wie ein Netzwerkfehler. */
+function cleanKey(k) { return String(k || "").replace(/[\s​-‍⁠﻿]/g, ""); }
+function keyProblem(k) {
+  const cs = [...String(k || "")], i = cs.findIndex((c) => c < "!" || c > "~");
+  if (i < 0) return "";
+  const code = "U+" + cs[i].codePointAt(0).toString(16).toUpperCase().padStart(4, "0");
+  return "Der Key enthält an Stelle " + (i + 1) + " das Zeichen „" + cs[i] + "“ (" + code + "), das in keinem Key vorkommt. "
+    + "Meist macht die iPhone-Tastatur aus zwei Bindestrichen einen Gedankenstrich. Key am besten kopieren und einfügen statt tippen.";
+}
+function ladeKey() {
+  let k = "", q = "";
+  try {
+    k = cleanKey(localStorage.getItem(KEY + ":key"));
+    if (k) q = "eigen";
+    else { k = cleanKey(localStorage.getItem(ET + ":key")); if (k) q = "english"; }
+  } catch (e) {}
+  apiKey = k; keyQuelle = q;
+}
+/* Anbieter am Präfix erkennen, statt eine zweite Einstellung zu pflegen */
+function anbieter() { return /^sk-ant-/.test(apiKey) ? "anthropic" : "gemini"; }
+function anbieterName() { return anbieter() === "anthropic" ? "Anthropic (Claude)" : "Google Gemini"; }
+
+/* ================= KI-Anbindung ================= */
+async function holen(url, opts) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ZEITLIMIT_MS);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
+function netzFehler(e, wo) {
+  const zeit = e && e.name === "AbortError";
+  const err = new Error(zeit
+    ? "Zeitüberschreitung: " + wo + " hat nicht rechtzeitig geantwortet."
+    : "Netzwerkfehler: Die Anfrage kam nicht bei " + wo + " an („Load failed“). Ein falscher Key ist es nicht, der ergäbe eine andere Meldung. "
+      + "Häufige Ursachen: kein Netz, Werbeblocker oder VPN, oder die App lag im Hintergrund. (Technisch: " + ((e && e.message) || e) + ")");
+  err.netz = true;
+  return err;
+}
+
+async function frageKI(prompt, o) {
+  o = o || {};
+  if (!apiKey) { const e = new Error("Kein API-Key hinterlegt. Unten unter „Einstellungen“ eintragen."); e.keinKey = true; throw e; }
+  const kp = keyProblem(apiKey); if (kp) throw new Error(kp);
+  return anbieter() === "anthropic" ? frageClaude(prompt, o) : frageGemini(prompt, o);
+}
+
+async function frageClaude(prompt, o) {
+  const body = {
+    model: claudeModell,
+    max_tokens: o.maxTokens || 16000,
+    messages: [{ role: "user", content: prompt }],
+    // Opus 5.5 denkt immer mit; effort steuert, wie viel (und was es kostet)
+    output_config: Object.assign({ effort: o.effort || "low" },
+      o.schema ? { format: { type: "json_schema", schema: o.schema } } : {})
+  };
+  if (o.system) body.system = o.system;
+  const headers = {
+    "Content-Type": "application/json", "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"
+  };
+  /* Lehnt ein Sicherheitsfilter ab, springt serverseitig ein anderes Modell ein.
+     Kennt die API das nicht (400), merkt sich die App das und lässt es weg. */
+  if (!ohneFallback) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
+
+  let lastErr;
+  for (let v = 0; v < 3; v++) {
+    if (v) await pause(1500 * v);
+    let res;
+    try { res = await holen("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(body) }); }
+    catch (e) { lastErr = netzFehler(e, "Anthropic"); continue; }
+    if (!res.ok) {
+      let msg = "Server antwortet mit " + res.status;
+      try { const eb = await res.json(); if (eb && eb.error && eb.error.message) msg = eb.error.message; } catch (_e) {}
+      if (res.status === 400 && !ohneFallback && /fallback|beta/i.test(msg)) {
+        ohneFallback = true; schreib("ohneFallback", true);
+        return frageClaude(prompt, o);
+      }
+      if (res.status === 401) throw new Error("Anthropic akzeptiert den API-Key nicht. Bitte unter „Einstellungen“ prüfen.");
+      if (/credit balance/i.test(msg)) throw new Error("Das Guthaben im Anthropic-Konto ist aufgebraucht. Aufladen unter console.anthropic.com → Billing.");
+      if (res.status === 429 || res.status >= 500) { lastErr = new Error("Anthropic ist gerade überlastet (" + res.status + "): " + msg); continue; }
+      throw new Error(msg);
+    }
+    const d = await res.json();
+    if (d.stop_reason === "refusal") throw new Error("Claude hat diese Anfrage abgelehnt.");
+    if (d.stop_reason === "max_tokens") throw new Error("Die Antwort wurde am Token-Limit abgeschnitten.");
+    const txt = (d.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+    if (!txt) { lastErr = new Error("Claude hat eine leere Antwort geliefert."); continue; }
+    // Bei einem serverseitigen Fallback steht hier das Modell, das wirklich geschrieben hat
+    letztesModell = d.model || body.model;
+    return txt;
+  }
+  throw lastErr;
+}
+
+/* Gemini: Logik aus dem English Trainer übernommen, dort teuer gelernt.
+   - Denk-Token zählen gegen maxOutputTokens → thinkingBudget 0
+   - Modelle werden ständig umbenannt → Kandidatenkette, Erfolgreiches merken
+   - Überlastung → nächstes Modell, danach einmal die ganze Kette nochmal
+   - Tageskontingent leer → kein zweiter Durchlauf, Warten hilft nicht */
+async function frageGemini(prompt, o) {
+  const asJson = !!o.schema;
+  const body = (mitDenken) => JSON.stringify(Object.assign(
+    o.system ? { system_instruction: { parts: [{ text: o.system }] } } : {},
+    {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: Object.assign({ maxOutputTokens: 8192 },
+        asJson ? { responseMimeType: "application/json" } : {},
+        mitDenken ? {} : { thinkingConfig: { thinkingBudget: 0 } })
+    }));
+  const call = async (model, mitDenken) => {
+    const send = () => holen("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
+      { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: body(mitDenken) });
+    let res;
+    try { res = await send(); }
+    catch (e) { await pause(1200); try { res = await send(); } catch (e2) { const err = netzFehler(e2, "Google"); err.code = 0; throw err; } }
+    if (!res.ok) {
+      let msg = "Server antwortet mit " + res.status;
+      try { const eb = await res.json(); if (eb && eb.error && eb.error.message) msg = eb.error.message; } catch (_e) {}
+      const err = new Error(msg); err.code = res.status; throw err;
+    }
+    const d = await res.json();
+    const c = d.candidates && d.candidates[0];
+    const txt = ((c && c.content && c.content.parts) || []).map((p) => p.text || "").join("\n").trim();
+    const fr = (c && c.finishReason) || "";
+    if (txt && fr !== "MAX_TOKENS") return txt;
+    const blockiert = d.promptFeedback && d.promptFeedback.blockReason;
+    let grund;
+    if (blockiert) grund = "Google hat die Anfrage blockiert (" + blockiert + ").";
+    else if (fr === "MAX_TOKENS") grund = "Die Antwort passte nicht ins Token-Budget.";
+    else if (fr === "SAFETY" || fr === "PROHIBITED_CONTENT") grund = "Googles Filter hat die Antwort zurückgehalten.";
+    else if (fr === "RECITATION") grund = "Google hat die Antwort wegen Zitat-Erkennung verworfen.";
+    else grund = "Das Modell hat nichts zurückgegeben" + (fr ? " (Grund: " + fr + ")" : "") + ".";
+    const err = new Error(grund + " Modell: " + model + "."); err.code = 204; err.leer = true; throw err;
+  };
+  const tryModel = async (model) => {
+    try { return await call(model, false); }
+    catch (e) { if (e.code === 400 && /thinking|thought/i.test(e.message || "")) return await call(model, true); throw e; }
+  };
+  const remember = (m) => { gModel = m; letztesModell = m; try { localStorage.setItem(KEY + ":gmodel", m); } catch (_e) {} };
+  const modelGone = (e) => e.code === 404 || /not (available|found|supported)|deprecated|no longer|does not exist/i.test(e.message || "");
+  const overloaded = (e) => e.code === 503 || e.code === 429 || /high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message || "");
+  const tageslimit = (e) => e.code === 429 && /per ?day|daily|perday|current quota|billing/i.test(e.message || "");
+  const cands = [...new Set([gModel, "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.6-flash",
+    "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"].filter(Boolean))];
+  let lastErr = null, sawOverload = false;
+  for (const m of cands) {
+    try { const t = await tryModel(m); remember(m); return t; }
+    catch (e) {
+      if (e.code === 400 && /api key/i.test(e.message || "")) throw new Error("Google akzeptiert den API-Key nicht. Bitte unter „Einstellungen“ prüfen.");
+      if (modelGone(e) || e.leer || tageslimit(e)) { lastErr = e; continue; }
+      if (overloaded(e)) { sawOverload = true; lastErr = e; continue; }
+      throw e;
+    }
+  }
+  if (sawOverload) {
+    await pause(2500);
+    for (const m of cands) {
+      try { const t = await tryModel(m); remember(m); return t; }
+      catch (e) { lastErr = e; }
+    }
+    throw new Error("Google meldet Überlastung auf allen Gratis-Modellen. Das liegt nicht an deinem Key. Eine Minute warten und erneut versuchen.");
+  }
+  try {
+    const r = await holen("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100", { headers: { "x-goog-api-key": apiKey } });
+    const d = await r.json();
+    const pick = ((d.models) || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => String(m.name || "").replace("models/", ""))
+      .filter((n) => n.includes("flash") && !/image|live|tts|audio|embed|veo|imagen|thinking/.test(n))
+      .sort().reverse()[0];
+    if (pick) { const t = await tryModel(pick); remember(pick); return t; }
+  } catch (_e) {}
+  if (lastErr && tageslimit(lastErr))
+    throw new Error("Das kostenlose Tageskontingent bei Google ist aufgebraucht. Es füllt sich im Laufe des Vormittags wieder auf. Bis dahin hilft nur ein anderer Key, z. B. von Anthropic.");
+  throw lastErr || new Error("Kein Gemini-Modell verfügbar.");
+}
+
+/* Rohe Zeilenumbrüche in JSON-Zeichenketten sind verboten, Modelle schreiben sie trotzdem */
+function fixJSON(s) {
+  let o = "", inS = false, esc2 = false;
+  for (const ch of s) {
+    if (inS) {
+      if (esc2) { esc2 = false; o += ch; continue; }
+      if (ch === "\\") { esc2 = true; o += ch; continue; }
+      if (ch === '"') { inS = false; o += ch; continue; }
+      if (ch === "\n") { o += "\\n"; continue; }
+      if (ch === "\r") continue;
+      if (ch === "\t") { o += "\\t"; continue; }
+      o += ch;
+    } else { if (ch === '"') inS = true; o += ch; }
+  }
+  return o;
+}
+function parseJSON(text) {
+  const c = fixJSON(String(text).replace(/```json/gi, "").replace(/```/g, "").trim());
+  const start = c.indexOf("{");
+  if (start < 0) throw new Error("Die Gliederung konnte nicht gelesen werden (Antwort: " + c.slice(0, 80) + " …)");
+  const b = c.slice(start);
+  try { return JSON.parse(b.slice(0, b.lastIndexOf("}") + 1)); } catch (e) {}
+  // Abgeschnitten: bis zum letzten vollständigen Kapitel kürzen und Klammern schließen
+  const last = b.lastIndexOf('"}');
+  if (last > -1) { try { return JSON.parse(b.slice(0, last + 2) + "]}"); } catch (e) {} }
+  throw new Error("Die Gliederung konnte nicht gelesen werden (Antwort: " + c.slice(0, 80) + " …)");
+}
+
+/* ================= Prompts ================= */
+function gliederungPrompt(j) {
+  return "Erstelle eine Gliederung für eine ausführliche deutsche Zusammenfassung des Buchs " + buchRef(j)
+    + ", aufgeteilt in genau " + j.anzahl + " Kapitel, die dem Aufbau und den Kernideen des Buchs folgen.\n\n"
+    + "Setze \"bekannt\" nur dann auf true, wenn du den Inhalt des Buchs selbst sicher kennst, nicht nur Titel oder Autor. "
+    + "Sonst setze es auf false und lass \"kapitel\" leer.\n\n"
+    + "Antworte nur mit JSON, ohne Markdown und ohne Erklärung. Halte die Werte kurz: \"fokus\" höchstens 12 Wörter, \"kernaussage\" höchstens 20 Wörter. "
+    + "\"kategorie\" ist ein knappes Genre wie Sachbuch, Roman, Psychologie, Wirtschaft.\n"
+    + '{"bekannt": true, "titel": "...", "autor": "...", "kategorie": "...", "kernaussage": "...", "kapitel": [{"titel": "...", "fokus": "..."}]}';
+}
+/* Ende des vorigen Kapitels (letzter Absatz, höchstens ~600 Zeichen). Ohne diesen
+   Anschluss schreibt jedes Kapitel für sich, und Übergänge wiederholen sich. */
+function vorEnde(j, i) {
+  const t = i > 0 && j.kapitel[i - 1] && j.kapitel[i - 1].text;
+  if (!t) return "";
+  const abs = t.split(/\n\s*\n/).filter((x) => x.trim());
+  let s = (abs[abs.length - 1] || "").trim();
+  if (s.length > 600) s = "… " + s.slice(s.length - 600).replace(/^\S*\s/, "");
+  return s;
+}
+/* Merkt sich am Entwurf bzw. Buch, welche Modelle mitgeschrieben haben. */
+function merkeModell(o) {
+  if (!letztesModell) return;
+  o.modelle = o.modelle || [];
+  if (!o.modelle.includes(letztesModell)) o.modelle.push(letztesModell);
+}
+function kapitelPrompt(j, i) {
+  const g = j.gliederung, k = j.kapitel[i];
+  const alle = j.kapitel.map((x, n) => (n + 1) + ". " + x.titel).join("\n");
+  return "Du schreibst eine ausführliche deutsche Zusammenfassung des Buchs " + buchRef({ titel: g.titel, autor: g.autor })
+    + (g.kategorie ? " (" + g.kategorie + ")" : "") + ". Gesamtgliederung:\n" + alle + "\n\n"
+    + "Schreibe jetzt NUR Kapitel " + (i + 1) + ": „" + k.titel + "“\nFokus: " + k.fokus + "\n\n"
+    + (vorEnde(j, i) ? "Das vorige Kapitel endete so:\n" + vorEnde(j, i) + "\n\nKnüpfe inhaltlich sinnvoll daran an, ohne es zu wiederholen.\n\n" : "")
+    + "Regeln:\n"
+    + "- " + (WORTE_JE_KAPITEL - 50) + "–" + (WORTE_JE_KAPITEL + 50) + " Wörter Fließtext, in 3–5 Absätze gegliedert (Absätze durch eine Leerzeile trennen)\n"
+    + "- Inhalte des Buchs in eigenen Worten wiedergeben, keine wörtlichen Zitate\n"
+    + "- Keine Überschrift, keine Einleitung wie „In diesem Kapitel“, direkt in den Inhalt einsteigen\n"
+    + "- Kein Markdown: keine Aufzählungszeichen, kein Fettdruck\n"
+    + "- Keine Wiederholung von Inhalten der anderen Kapitel";
+}
+/* Falls das Modell doch Markdown schreibt: Überschriften raus, Fettdruck weg */
+function saeubere(t) {
+  return String(t).replace(/^#{1,6}\s.*$/gm, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/* ================= Generierung ================= */
+function starte() {
+  const titel = S.titel.trim();
+  if (!titel || S.laeuft) return;
+  if (!apiKey) {
+    S.fehler = "Für Zusammenfassungen braucht die App einen API-Key. Trag ihn unten unter „Einstellungen“ ein.";
+    S.einst = true; render(); return;
+  }
+  if (S.job) { S.fehler = "Es gibt noch eine unfertige Zusammenfassung. Bitte erst fortsetzen oder verwerfen."; render(); return; }
+  S.hinweis = "";
+  S.job = { titel, autor: S.autor.trim(), minuten: S.minuten, anzahl: anzahlFuer(S.minuten),
+    gliederung: null, kapitel: [], fehler: "", aktuell: -1 };
+  schreib("job", S.job);
+  S.fehler = "";
+  arbeite();
+}
+
+async function arbeite() {
+  const j = S.job; if (!j) return;
+  const lauf = ++S.lauf;
+  const aktiv = () => S.lauf === lauf;
+  S.laeuft = true; j.fehler = ""; S.ansicht = "generieren";
+  render(); window.scrollTo(0, 0);
+  wachHalten(true);
+  try {
+    if (!j.gliederung) {
+      j.aktuell = -1;
+      const txt = await frageKI(gliederungPrompt(j), { schema: GLIEDERUNG_SCHEMA, effort: "medium", system: SYSTEM });
+      if (!aktiv()) return;
+      const g = parseJSON(txt);
+      merkeModell(j);
+      if (g.bekannt === false) {
+        const ref = buchRef(j);
+        verwirfJob();
+        S.fehler = "Das Buch " + ref + " kenne ich nicht sicher genug für eine verlässliche Zusammenfassung. Prüfe die Schreibweise oder ergänze den Autor.";
+        S.ansicht = "bibliothek"; render(); return;
+      }
+      if (!Array.isArray(g.kapitel) || !g.kapitel.length) throw new Error("Die Gliederung kam ohne Kapitel zurück.");
+      j.gliederung = { titel: g.titel || j.titel, autor: g.autor || j.autor, kategorie: g.kategorie || "", kernaussage: g.kernaussage || "" };
+      j.kapitel = g.kapitel.map((k) => ({ titel: String(k.titel || "").trim(), fokus: String(k.fokus || "").trim(), text: "" }));
+      schreib("job", j);
+      render();
+    }
+    for (let i = 0; i < j.kapitel.length; i++) {
+      if (j.kapitel[i].text) continue;
+      j.aktuell = i; render();
+      const txt = await frageKI(kapitelPrompt(j, i), { effort: "low", system: SYSTEM });
+      if (!aktiv()) return;
+      j.kapitel[i].text = saeubere(txt);
+      merkeModell(j);
+      S.autoWeiter = false;
+      // Nach jedem Kapitel sichern: iOS beendet Hintergrund-Tabs ohne Vorwarnung
+      schreib("job", j);
+      render();
+    }
+    fertigstellen();
+  } catch (e) {
+    if (!aktiv()) return;
+    j.fehler = (e && e.message) || String(e);
+    j.netz = !!(e && e.netz);
+    schreib("job", j);
+    S.laeuft = false; wachHalten(false);
+    render();
+  }
+}
+
+function fertigstellen() {
+  const j = S.job;
+  // fokus bleibt erhalten, damit "Kapitel neu schreiben" später denselben Auftrag hat
+  const kapitel = j.kapitel.map((k) => ({ titel: k.titel, fokus: k.fokus, text: k.text }));
+  const woerter = kapitel.reduce((s, k) => s + wortzahl(k.text), 0);
+  const minuten = Math.max(1, Math.round(woerter / WPM));
+  const id = Date.now().toString(36);
+  const buch = Object.assign({ id }, j.gliederung, { woerter, minuten, datum: heute(), kapitel, modelle: j.modelle || [] });
+  // Erst den Entwurf freigeben, dann das Buch schreiben: beide zusammen sprengen sonst eher den Speicher
+  entferne("job");
+  if (!schreib("buch:" + id, buch)) {
+    schreib("job", j);
+    j.fehler = "Der Speicher ist voll. Lösche ein paar Bücher aus dem Regal (oder exportiere sie vorher) und tippe dann auf „Erneut versuchen“.";
+    S.laeuft = false; wachHalten(false); render(); return;
+  }
+  S.index = [{ id, titel: buch.titel, autor: buch.autor, kategorie: buch.kategorie, woerter, minuten, datum: buch.datum, pos: 0 }, ...S.index];
+  schreib("index", S.index);
+  S.job = null; S.laeuft = false; S.titel = ""; S.autor = "";
+  wachHalten(false);
+  oeffneBuch(buch);
+}
+
+function abbrechen() {
+  S.lauf++;   // der laufende Durchgang merkt das und schreibt nichts mehr
+  S.laeuft = false; wachHalten(false);
+  if (S.job) { S.job.fehler = ""; S.job.aktuell = -1; schreib("job", S.job); }
+  S.ansicht = "bibliothek"; render();
+}
+function verwirfJob() { S.lauf++; S.laeuft = false; S.job = null; S.verwerfFrage = false; entferne("job"); wachHalten(false); }
+
+/* Bildschirm wach halten, solange geschrieben wird. Geht nicht überall, dann eben nicht. */
+async function wachHalten(an) {
+  try {
+    if (an && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    if (!an && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { wakeLock = null; }
+}
+
+/* ================= Regal ================= */
+function oeffne(id) {
+  const b = lies("buch:" + id, null);
+  if (!b) { S.fehler = "Dieses Buch ließ sich nicht laden."; render(); return; }
+  oeffneBuch(b);
+}
+function oeffneBuch(b) {
+  vorStopp(false);
+  S.buch = b; S.ansicht = "lesen"; S.loeschFrage = null;
+  S.hinweis = ""; S.neuFrage = null; S.neuFehler = null;
+  render();
+  const e = S.index.find((x) => x.id === b.id);
+  const p = (e && e.pos) || 0;
+  requestAnimationFrame(() => {
+    const el = document.documentElement, max = el.scrollHeight - el.clientHeight;
+    window.scrollTo(0, p > 0 && p < 98 ? Math.round(max * p / 100) : 0);
+    leseleiste();
+  });
+}
+function zumRegal() { vorStopp(false); S.ansicht = "bibliothek"; S.buch = null; render(); window.scrollTo(0, 0); }
+function loesche(id) {
+  entferne("buch:" + id);
+  S.index = S.index.filter((b) => b.id !== id);
+  schreib("index", S.index);
+  S.loeschFrage = null; render();
+}
+function setzeLaenge(m) { S.minuten = m; schreib("laenge", m); render(); }
+
+/* ================= Lesen ================= */
+let posTimer = null;
+function leseleiste() {
+  if (S.ansicht !== "lesen" || !S.buch) return;
+  const el = document.documentElement, max = el.scrollHeight - el.clientHeight;
+  const pct = max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 0;
+  const spur = $("spur"), rest = $("rest");
+  if (spur) spur.style.width = pct + "%";
+  if (rest) rest.textContent = pct < 98 ? "noch ca. " + Math.max(1, Math.round(S.buch.minuten * (1 - pct / 100))) + " Min." : "Zu Ende gelesen";
+  clearTimeout(posTimer);
+  const id = S.buch.id;
+  posTimer = setTimeout(() => {
+    const e = S.index.find((x) => x.id === id); if (!e) return;
+    e.pos = pct; if (pct >= 98) e.gelesen = true;
+    schreib("index", S.index);
+  }, 600);
+}
+window.addEventListener("scroll", leseleiste, { passive: true });
+
+/* ================= Schriftgröße ================= */
+/* Setzt nur die CSS-Variable, ohne neu zu zeichnen, und hält die Leseposition. */
+function schrift(d) {
+  const el = document.documentElement, max0 = el.scrollHeight - el.clientHeight, p = max0 > 0 ? el.scrollTop / max0 : 0;
+  let i = SCHRIFTEN.indexOf(S.schrift); if (i < 0) i = 1;
+  S.schrift = SCHRIFTEN[Math.max(0, Math.min(SCHRIFTEN.length - 1, i + d))];
+  schreib("schrift", S.schrift);
+  const a = document.querySelector("article"); if (a) a.style.setProperty("--lese", S.schrift + "px");
+  const max1 = el.scrollHeight - el.clientHeight;
+  window.scrollTo(0, Math.round(max1 * p));
+  leseleiste();
+}
+
+/* ================= Vorlesen ================= */
+/* Liest Absatz für Absatz mit der Sprachausgabe des Geräts (kostenlos, offline).
+   Eine Äußerung pro Absatz: Lange Texte bricht Safari sonst gern ab.
+   „Pause“ bricht ab und merkt sich den Absatz, statt pause()/resume() zu nutzen,
+   das ist auf iOS unzuverlässig. V.zug macht veraltete onend-Ereignisse nach
+   cancel() unschädlich. */
+const TTS = window.speechSynthesis || null;
+const V = { an: false, idx: 0, teile: [], buchId: "", zug: 0, tempo: 1 };
+function stimme() {
+  if (!TTS) return null;
+  const vs = TTS.getVoices().filter((v) => /^de([-_]|$)/i.test(v.lang));
+  return vs.find((v) => /premium|enhanced|erweitert/i.test(v.name)) || vs.find((v) => v.localService) || vs[0] || null;
+}
+function vorlesen() {
+  if (!TTS || !S.buch) return;
+  if (V.an) { vorStopp(true); return; }
+  V.teile = [...document.querySelectorAll("article [data-vor]")];
+  if (!V.teile.length) return;
+  const hoehe = window.innerHeight || document.documentElement.clientHeight;
+  const sichtbar = (e) => { if (!hoehe) return true; const r = e.getBoundingClientRect(); return r.bottom > 110 && r.top < hoehe; };
+  // Weiter beim gemerkten Absatz, wenn er noch zu sehen ist, sonst beim ersten sichtbaren
+  if (V.buchId !== S.buch.id || !V.teile[V.idx] || !sichtbar(V.teile[V.idx])) {
+    const k = V.teile.findIndex(sichtbar); V.idx = k < 0 ? 0 : k;
+  }
+  V.buchId = S.buch.id; V.an = true;
+  wachHalten(true); vorKnopf(); sprich();
+}
+function sprich() {
+  if (!V.an) return;
+  const el = V.teile[V.idx];
+  document.querySelectorAll("article .vor").forEach((x) => x.classList.remove("vor"));
+  if (!el) { V.idx = 0; vorStopp(false); return; }   // zu Ende gelesen
+  el.classList.add("vor");
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  const u = new SpeechSynthesisUtterance(el.getAttribute("data-sprich") || el.textContent);
+  u.lang = "de-DE"; u.rate = V.tempo;
+  const s = stimme(); if (s) u.voice = s;
+  const meins = ++V.zug;
+  u.onend = () => { if (V.an && meins === V.zug) { V.idx++; sprich(); } };
+  u.onerror = (e) => { if (V.an && meins === V.zug && e.error !== "interrupted" && e.error !== "canceled") { V.idx++; sprich(); } };
+  TTS.speak(u);
+}
+function vorStopp(merken) {
+  V.zug++; V.an = false;
+  if (TTS) TTS.cancel();
+  if (!merken) document.querySelectorAll("article .vor").forEach((x) => x.classList.remove("vor"));
+  if (!S.laeuft) wachHalten(false);   // während einer Generierung bleibt der Bildschirm an
+  vorKnopf();
+}
+function vorKnopf() {
+  const b = $("vorBtn"); if (b) b.textContent = V.an ? "❚❚ Pause" : "▶ Vorlesen";
+  const t = $("tempoBtn");
+  if (t) { t.style.display = V.an ? "" : "none"; t.textContent = String(V.tempo).replace(".", ",") + "×"; }
+}
+function tempo() {
+  const i = TEMPI.indexOf(V.tempo);
+  V.tempo = TEMPI[(i + 1) % TEMPI.length]; schreib("tempo", V.tempo); vorKnopf();
+  if (V.an) { V.zug++; TTS.cancel(); sprich(); }
+}
+
+/* ================= Kapitel neu schreiben ================= */
+/* Zeichnet den Lesemodus neu, ohne dass die Seite nach oben springt. */
+function zeichneLesen() { const y = window.scrollY; render(); window.scrollTo(0, y); leseleiste(); }
+async function neuSchreiben(i) {
+  const b = S.buch; if (!b || S.neuKap != null) return;
+  S.neuFrage = null; S.neuFehler = null;
+  if (!apiKey) { S.neuFehler = { i, text: "Dafür braucht die App einen API-Key (Regal → Einstellungen)." }; zeichneLesen(); return; }
+  vorStopp(false);
+  S.neuKap = i; zeichneLesen();
+  // Dasselbe Auftragsformat wie bei der ersten Generierung, inklusive Anschluss ans vorige Kapitel
+  const j = { gliederung: { titel: b.titel, autor: b.autor, kategorie: b.kategorie },
+    kapitel: b.kapitel.map((k) => ({ titel: k.titel, fokus: k.fokus || k.titel, text: k.text })) };
+  const alt = b.kapitel[i].text;
+  try {
+    const txt = await frageKI(kapitelPrompt(j, i), { effort: "low", system: SYSTEM });
+    b.kapitel[i].text = saeubere(txt);
+    merkeModell(b);
+    b.woerter = b.kapitel.reduce((s, k) => s + wortzahl(k.text), 0);
+    b.minuten = Math.max(1, Math.round(b.woerter / WPM));
+    if (!schreib("buch:" + b.id, b)) { b.kapitel[i].text = alt; throw new Error("Der Speicher ist voll. Lösche ein Buch aus dem Regal und versuche es dann erneut."); }
+    const e = S.index.find((x) => x.id === b.id);
+    if (e) { e.woerter = b.woerter; e.minuten = b.minuten; schreib("index", S.index); }
+  } catch (e) { S.neuFehler = { i, text: (e && e.message) || String(e) }; }
+  S.neuKap = null;
+  if (S.ansicht === "lesen" && S.buch === b) zeichneLesen();
+}
+
+/* ================= Sicherung des ganzen Regals ================= */
+/* Am Telefon über das Teilen-Menü (In Dateien sichern, iCloud Drive), sonst als Download. */
+async function teileDatei(name, inhalt, typ) {
+  const datei = new File([inhalt], name, { type: typ });
+  const touch = window.matchMedia && matchMedia("(pointer:coarse)").matches;
+  if (touch && navigator.canShare && navigator.canShare({ files: [datei] })) {
+    try { await navigator.share({ files: [datei], title: name }); return true; }
+    catch (e) { if (e && e.name === "AbortError") return false; }
+  }
+  const url = URL.createObjectURL(datei);
+  const a = document.createElement("a"); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return true;
+}
+async function sichereRegal() {
+  const buecher = S.index.map((e) => lies("buch:" + e.id, null)).filter(Boolean);
+  if (!buecher.length) { S.fehler = "Das Regal ist leer, es gibt nichts zu sichern."; render(); return; }
+  const daten = { app: "halbe-stunde", version: 1, datum: heute(), index: S.index, buecher };
+  if (!(await teileDatei("Halbe-Stunde-Regal-" + heute() + ".json", JSON.stringify(daten), "application/json"))) return;
+  S.gesichert = heute(); schreib("gesichert", S.gesichert);
+  S.fehler = ""; S.hinweis = buecher.length + " " + (buecher.length === 1 ? "Buch" : "Bücher") + " gesichert. Leg die Datei am besten in iCloud Drive ab.";
+  render();
+}
+function waehleSicherung() { const f = $("importDatei"); if (f) { f.value = ""; f.click(); } }
+async function spieleEin(datei) {
+  if (!datei) return;
+  const kaputt = "Die Datei ist keine Sicherung von Halbe Stunde.";
+  let d;
+  try { d = JSON.parse(await datei.text()); } catch (e) { S.fehler = kaputt; S.hinweis = ""; render(); return; }
+  if (!d || d.app !== "halbe-stunde" || !Array.isArray(d.buecher)) { S.fehler = kaputt; S.hinweis = ""; render(); return; }
+  const vorhanden = new Set(S.index.map((e) => e.id));
+  const meta = new Map((Array.isArray(d.index) ? d.index : []).map((e) => [e && e.id, e]));
+  let neu = 0, doppelt = 0, voll = false;
+  for (const b of d.buecher) {
+    // Die id landet später in onclick-Attributen, deshalb nur harmlose Zeichen zulassen
+    if (!b || !/^[a-z0-9]{1,20}$/i.test(String(b.id)) || !b.titel || !Array.isArray(b.kapitel)) continue;
+    if (vorhanden.has(b.id)) { doppelt++; continue; }
+    if (!schreib("buch:" + b.id, b)) { voll = true; break; }
+    const m = meta.get(b.id) || {};
+    S.index.push({ id: b.id, titel: b.titel, autor: b.autor || "", kategorie: b.kategorie || "",
+      woerter: b.woerter || 0, minuten: b.minuten || 1, datum: b.datum || heute(), pos: m.pos || 0, gelesen: !!m.gelesen });
+    vorhanden.add(b.id); neu++;
+  }
+  S.index.sort((x, y) => String(y.datum).localeCompare(String(x.datum)));
+  schreib("index", S.index);
+  S.fehler = "";
+  S.hinweis = neu + " " + (neu === 1 ? "Buch" : "Bücher") + " eingespielt"
+    + (doppelt ? ", " + doppelt + " " + (doppelt === 1 ? "war" : "waren") + " schon im Regal" : "") + "."
+    + (voll ? " Der Speicher ist voll, die übrigen fehlen." : "");
+  render();
+}
+function tageSeit(iso) {
+  const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ""); if (!m) return Infinity;
+  return Math.floor((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 864e5);
+}
+
+/* ================= Suche und Sortierung im Regal ================= */
+const SORTIERUNGEN = [["neu", "Neueste zuerst"], ["titel", "Titel A–Z"], ["autor", "Autor A–Z"], ["offen", "Ungelesene zuerst"]];
+function regalListe() {
+  const q = S.suche.trim().toLowerCase();
+  let l = S.index.filter((b) => !q || [b.titel, b.autor, b.kategorie].join(" ").toLowerCase().includes(q));
+  const de = (a, b) => String(a || "").localeCompare(String(b || ""), "de");
+  if (S.sort === "titel") l = l.slice().sort((a, b) => de(a.titel, b.titel));
+  else if (S.sort === "autor") l = l.slice().sort((a, b) => de(a.autor, b.autor) || de(a.titel, b.titel));
+  else if (S.sort === "offen") l = l.slice().sort((a, b) => (a.gelesen ? 1 : 0) - (b.gelesen ? 1 : 0));
+  return l;
+}
+function regalHtml() {
+  const l = regalListe();
+  if (!l.length) return '<p class="leer">Kein Buch passt zu dieser Suche.</p>';
+  let h = "";
+  l.forEach((b) => {
+    const stand = b.gelesen ? "gelesen" : b.pos > 2 ? "zu " + b.pos + " % gelesen" : "";
+    h += '<div class="eintrag"><div class="ruecken' + (b.gelesen ? " gelesen" : "") + '"></div>'
+      + '<div class="info" onclick="oeffne(\'' + esc(b.id) + '\')"><div class="t">' + esc(b.titel) + '</div>'
+      + '<div class="a">' + esc(b.autor) + '</div>'
+      + '<div class="m">' + ["ca. " + b.minuten + " Min.", esc(b.kategorie), datumDe(b.datum), stand].filter(Boolean).join(" · ") + '</div></div>';
+    if (S.loeschFrage === b.id) {
+      h += '<div class="frage"><button class="klein gefahr" onclick="loesche(\'' + esc(b.id) + '\')">Löschen</button>'
+        + '<button class="klein" onclick="S.loeschFrage=null;render()">Behalten</button></div>';
+    } else {
+      h += '<button class="weg" title="Löschen" aria-label="Löschen" onclick="S.loeschFrage=\'' + esc(b.id) + '\';render()">×</button>';
+    }
+    h += '</div>';
+  });
+  return h;
+}
+/* Nur die Liste neu zeichnen: Ein volles render() würde das Suchfeld beim Tippen ersetzen. */
+function zeigeRegal() { const r = $("regal"); if (r) r.innerHTML = regalHtml(); }
+
+async function exportiere() {
+  const b = S.buch; if (!b) return;
+  let md = "# " + b.titel + "\n\n*" + b.autor + "*\n\n";
+  if (b.kernaussage) md += "> " + b.kernaussage + "\n\n";
+  md += [b.kategorie, zahl(b.woerter) + " Wörter", "ca. " + b.minuten + " Minuten Lesezeit"].filter(Boolean).join(" · ") + "\n\n";
+  b.kapitel.forEach((k, i) => { md += "## " + (i + 1) + ". " + k.titel + "\n\n" + k.text + "\n\n"; });
+  md += "---\n\nKI-generierte Zusammenfassung in eigenen Worten, erstellt mit „Halbe Stunde“ am " + datumDe(b.datum) + ". Ersetzt nicht das Original und kann Ungenauigkeiten enthalten.\n";
+  const name = (b.titel.replace(/[\\/:*?"<>|]+/g, "").trim() || "Zusammenfassung") + ".md";
+  const datei = new File([md], name, { type: "text/markdown" });
+  // Am Telefon über das Teilen-Menü (z. B. „In Dateien sichern“), am Rechner als Download
+  const touch = window.matchMedia && matchMedia("(pointer:coarse)").matches;
+  if (touch && navigator.canShare && navigator.canShare({ files: [datei] })) {
+    try { await navigator.share({ files: [datei], title: b.titel }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const url = URL.createObjectURL(datei);
+  const a = document.createElement("a"); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* ================= Einstellungen ================= */
+function einstellungen(an) { S.einst = an; S.keyMeldung = ""; render(); if (an) { const f = $("keybox"); if (f) f.scrollIntoView({ block: "center", behavior: "smooth" }); } }
+async function speichereKey() {
+  const f = $("keybox"); const k = cleanKey(f ? f.value : "");
+  if (f) f.value = k;
+  const kp = k && keyProblem(k);
+  if (kp) { S.keyMeldung = kp + " Nicht gespeichert."; S.keyGut = false; render(); return; }
+  try { if (k) localStorage.setItem(KEY + ":key", k); else localStorage.removeItem(KEY + ":key"); } catch (e) {}
+  ladeKey();
+  if (!apiKey) { S.keyMeldung = "Kein Key hinterlegt."; S.keyGut = false; render(); return; }
+  S.keyTest = true; S.keyMeldung = "Key wird getestet …"; S.keyGut = true; render();
+  try {
+    await frageKI("Antworte nur mit dem Wort: ok", { effort: "low", maxTokens: 2000 });
+    S.keyMeldung = "Key funktioniert (" + anbieterName() + ")."; S.keyGut = true;
+    if (/API-Key/.test(S.fehler)) S.fehler = "";
+  } catch (e) {
+    S.keyMeldung = "Test fehlgeschlagen: " + ((e && e.message) || e); S.keyGut = false;
+  }
+  S.keyTest = false; render();
+}
+
+/* ================= Darstellung ================= */
+function render() {
+  const app = $("app");
+  if (S.ansicht === "lesen" && S.buch) app.innerHTML = renderLesen();
+  else if (S.ansicht === "generieren" && S.job) app.innerHTML = renderGenerieren();
+  else { S.ansicht = "bibliothek"; app.innerHTML = renderBibliothek(); }
+}
+
+function renderLesen() {
+  const b = S.buch;
+  let h = '<div class="leiste"><div class="zeile"><button onclick="zumRegal()">‹ Regal</button><div class="werkzeug">'
+    + '<button onclick="schrift(-1)" aria-label="Schrift kleiner">A−</button>'
+    + '<button class="gross" onclick="schrift(1)" aria-label="Schrift größer">A+</button>'
+    + (TTS ? '<button id="tempoBtn" onclick="tempo()" aria-label="Vorlesetempo" style="display:none"></button>'
+      + '<button id="vorBtn" onclick="vorlesen()">▶ Vorlesen</button>' : '')
+    + '</div></div><div class="spur"><div id="spur" style="width:0%"></div></div>'
+    + '<div class="rest" id="rest">ca. ' + b.minuten + ' Min.</div></div>';
+  // data-vor markiert, was vorgelesen wird; data-sprich ersetzt den sichtbaren Text beim Vorlesen
+  h += '<article style="--lese:' + S.schrift + 'px"><header><div class="marke"></div>'
+    + '<h1 data-vor="t" data-sprich="' + esc(b.titel + (b.autor ? ". Von " + b.autor : "")) + '">' + esc(b.titel) + '</h1>'
+    + '<p class="autor">' + esc(b.autor) + '</p>';
+  if (b.kernaussage) h += '<p class="kern" data-vor="k">' + esc(b.kernaussage) + '</p>';
+  h += '<p class="meta">' + [esc(b.kategorie), zahl(b.woerter) + " Wörter", "ca. " + b.minuten + " Minuten Lesezeit"].filter(Boolean).join(" · ") + '</p>';
+  const mods = b.modelle || [];
+  if (mods.length) {
+    h += '<p class="meta">Geschrieben mit ' + esc(mods.join(", ")) + '.'
+      + (mods.some((m) => /lite/i.test(m)) ? ' Teile stammen von einem kleineren Modell, Einzelheiten können ungenauer sein.' : '') + '</p>';
+  }
+  h += '</header>';
+  b.kapitel.forEach((k, i) => {
+    h += '<section><h2 data-vor="h" data-sprich="' + esc("Kapitel " + (i + 1) + ". " + k.titel) + '"><span>' + (i + 1) + '</span>' + esc(k.titel) + '</h2>';
+    k.text.split(/\n\s*\n/).forEach((abs) => { if (abs.trim()) h += '<p data-vor="p">' + esc(abs.trim()) + '</p>'; });
+    if (S.neuKap === i) {
+      h += '<p class="kapneu laeuft">Wird neu geschrieben …</p>';
+    } else if (S.neuFrage === i) {
+      h += '<div class="kapneu"><button class="klein" onclick="neuSchreiben(' + i + ')">Ja, neu schreiben</button>'
+        + '<button class="klein" onclick="S.neuFrage=null;zeichneLesen()">Abbrechen</button></div>'
+        + '<p class="notiz">Der bisherige Text dieses Kapitels wird ersetzt. Das kostet eine weitere KI-Anfrage.</p>';
+    } else {
+      h += '<div class="kapneu"><button class="textknopf" onclick="S.neuFrage=' + i + ';S.neuFehler=null;zeichneLesen()"'
+        + (S.neuKap != null ? ' disabled' : '') + '>Kapitel neu schreiben</button></div>';
+    }
+    if (S.neuFehler && S.neuFehler.i === i) h += '<div class="banner" style="margin-top:10px">' + esc(S.neuFehler.text) + '</div>';
+    h += '</section>';
+  });
+  h += '<footer>KI-generierte Zusammenfassung in eigenen Worten. Ersetzt nicht das Original und kann Ungenauigkeiten enthalten.'
+    + '<div class="knoepfe"><button class="klein" onclick="exportiere()">Als Markdown exportieren</button>'
+    + '<button class="klein" onclick="zumRegal()">Zurück zum Regal</button></div></footer></article>';
+  return h;
+}
+
+function renderGenerieren() {
+  const j = S.job, n = j.kapitel.length;
+  const fertig = j.kapitel.filter((k) => k.text).length;
+  const prozent = n ? Math.round((fertig / n) * 100) : 4;
+  let status;
+  if (j.fehler) status = j.gliederung ? "Angehalten bei Kapitel " + (fertig + 1) + " von " + n + "." : "Angehalten bei der Gliederung.";
+  else if (!S.laeuft) status = "Pausiert, " + fertig + " von " + n + " Kapiteln fertig.";
+  else if (!j.gliederung) status = "Gliederung wird erstellt …";
+  else status = "Kapitel " + Math.min(fertig + 1, n) + " von " + n + " wird geschrieben …";
+
+  let h = '<div class="spalte gen"><div class="marke"></div><h1>' + esc(j.gliederung ? j.gliederung.titel : j.titel) + '</h1>'
+    + '<p class="status">' + esc(status) + '</p><div class="balken"><div style="width:' + prozent + '%"></div></div>';
+  j.kapitel.forEach((k, i) => {
+    const zustand = k.text ? "fertig" : (S.laeuft && j.aktuell === i) ? "laeuft" : (j.fehler && i === fertig) ? "fehler" : "offen";
+    const nr = zustand === "fertig" ? "✓" : zustand === "laeuft" ? "…" : zustand === "fehler" ? "!" : (i + 1);
+    h += '<div class="kap ' + zustand + '"><span class="nr">' + nr + '</span><span class="t">' + esc(k.titel) + '</span></div>';
+  });
+  if (j.fehler) {
+    h += '<div class="banner" style="margin-top:24px">' + esc(j.fehler)
+      + '<br><br>Bereits fertige Kapitel bleiben erhalten. „Erneut versuchen“ macht beim fehlgeschlagenen Kapitel weiter.</div>';
+  }
+  h += '<div class="unten">';
+  if (j.fehler || !S.laeuft) h += '<button class="haupt" onclick="arbeite()">' + (j.fehler ? "Erneut versuchen" : "Fortsetzen") + '</button>';
+  h += '<button class="klein" onclick="abbrechen()">' + (S.laeuft ? "Anhalten" : "Zum Regal") + '</button></div>';
+  if (S.laeuft) h += '<p class="notiz">Dauert einige Minuten. Lass die App am besten geöffnet. Der Fortschritt wird nach jedem Kapitel gespeichert, du kannst also jederzeit später weitermachen.</p>';
+  return h + '</div>';
+}
+
+function renderBibliothek() {
+  let h = '<div class="spalte"><header class="kopf"><div class="marke"></div><h1>Halbe Stunde</h1>'
+    + '<p class="unter">Ganze Bücher, zusammengefasst auf 30 Minuten Lesezeit.</p></header>';
+
+  if (S.fehler) h += '<div class="banner">' + esc(S.fehler) + '</div>';
+  if (S.hinweis) h += '<div class="banner gut">' + esc(S.hinweis) + '</div>';
+
+  if (S.job) {
+    const j = S.job, n = j.kapitel.length, f = j.kapitel.filter((k) => k.text).length;
+    h += '<div class="banner"><b>Unfertig:</b> ' + esc(j.gliederung ? j.gliederung.titel : j.titel)
+      + (n ? ', ' + f + ' von ' + n + ' Kapiteln geschrieben' : ', noch ohne Gliederung') + '.';
+    if (S.verwerfFrage) {
+      h += '<div class="knoepfe"><button class="klein gefahr" onclick="verwirfJob();render()">Wirklich verwerfen</button>'
+        + '<button class="klein" onclick="S.verwerfFrage=false;render()">Behalten</button></div>';
+    } else {
+      h += '<div class="knoepfe"><button class="klein" onclick="S.fehler=\'\';arbeite()">Fortsetzen</button>'
+        + '<button class="klein" onclick="S.verwerfFrage=true;render()">Verwerfen</button></div>';
+    }
+    h += '</div>';
+  }
+
+  const n = anzahlFuer(S.minuten);
+  h += '<div class="eingabe">'
+    + '<input class="titel" id="titelbox" value="' + esc(S.titel) + '" placeholder="Buchtitel" autocomplete="off" enterkeyhint="go"'
+    + ' oninput="S.titel=this.value;knopf()" onkeydown="if(event.key===\'Enter\')starte()">'
+    + '<input class="autor" id="autorbox" value="' + esc(S.autor) + '" placeholder="Autor (optional)" autocomplete="off" enterkeyhint="go"'
+    + ' oninput="S.autor=this.value" onkeydown="if(event.key===\'Enter\')starte()">'
+    + '<div class="laenge">' + LAENGEN.map((l) => '<button class="' + (l[0] === S.minuten ? "an" : "") + '" onclick="setzeLaenge(' + l[0] + ')">' + l[0] + ' Min.</button>').join("") + '</div>'
+    + '<button class="haupt" id="los" onclick="starte()"' + (S.titel.trim() ? "" : " disabled") + '>Zusammenfassung erstellen</button>'
+    + '<p class="notiz">' + n + ' Kapitel, je rund ' + WORTE_JE_KAPITEL + ' Wörter. Dauert einige Minuten, die Zusammenfassung wird Kapitel für Kapitel geschrieben. '
+    + 'Funktioniert am besten bei bekannten Sachbüchern und Klassikern.</p></div>';
+
+  if (!S.index.length) {
+    h += '<p class="leer">Dein Regal ist noch leer. Gib oben ein Buch ein, zum Beispiel „Thinking, Fast and Slow“ oder „Der Prozess“.</p>';
+  } else {
+    h += '<h2 class="regal-titel">Dein Regal · ' + S.index.length + ' ' + (S.index.length === 1 ? "Buch" : "Bücher") + '</h2>';
+    // Suche und Sortierung erst, wenn das Regal unübersichtlich wird
+    if (S.index.length >= 6) {
+      h += '<div class="regalwerkzeug"><input id="suche" type="search" value="' + esc(S.suche) + '" placeholder="Im Regal suchen" autocomplete="off" oninput="S.suche=this.value;zeigeRegal()">'
+        + '<select aria-label="Sortierung" onchange="S.sort=this.value;schreib(\'sort\',S.sort);zeigeRegal()">'
+        + SORTIERUNGEN.map((s) => '<option value="' + s[0] + '"' + (S.sort === s[0] ? " selected" : "") + '>' + s[1] + '</option>').join("")
+        + '</select></div>';
+    }
+    h += '<div id="regal">' + regalHtml() + '</div>';
+    // Erinnerung: Das Regal liegt nur auf diesem Gerät
+    const tage = tageSeit(S.gesichert);
+    if (S.index.length >= 2 && tage >= 30) {
+      h += '<div class="banner" style="margin-top:20px">Dein Regal liegt nur auf diesem Gerät. '
+        + (S.gesichert ? "Zuletzt gesichert vor " + tage + " Tagen." : "Es wurde noch nie gesichert.")
+        + '<div class="knoepfe"><button class="klein" onclick="sichereRegal()">Jetzt sichern</button></div></div>';
+    }
+  }
+
+  h += '<input type="file" id="importDatei" accept=".json,application/json" style="display:none" onchange="spieleEin(this.files[0])">';
+  h += '<div class="fuss" style="display:flex;gap:18px;flex-wrap:wrap">'
+    + (S.index.length ? '<button onclick="sichereRegal()">Regal sichern</button>' : '')
+    + '<button onclick="waehleSicherung()">Sicherung einspielen</button>'
+    + '<button onclick="einstellungen(' + (!S.einst) + ')">Einstellungen</button></div>';
+  h += '<div>';
+  if (S.einst) h += renderEinstellungen();
+  return h + '</div></div>';
+}
+
+function renderEinstellungen() {
+  let eigen = "";
+  try { eigen = cleanKey(localStorage.getItem(KEY + ":key")); } catch (e) {}
+  let stand;
+  if (keyQuelle === "english") stand = "Derzeit wird der Key des English Trainers mitbenutzt (" + anbieterName() + "). Ein Key hier hat Vorrang.";
+  else if (keyQuelle === "eigen") stand = "Hinterlegt: " + anbieterName() + ".";
+  else stand = "Noch kein Key hinterlegt.";
+  const mb = (speicherBelegt() / 1048576).toLocaleString("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  return '<section class="einst"><h2>Einstellungen</h2>'
+    + '<label for="keybox">API-Key</label>'
+    + '<input id="keybox" value="' + esc(eigen) + '" placeholder="sk-ant-… oder AIza…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">'
+    + '<p>' + esc(stand) + '</p>'
+    + '<p><b>Anthropic</b> (Key beginnt mit sk-ant-): beste Textqualität, Key unter console.anthropic.com. Modell wählen, Preis je 30-Minuten-Zusammenfassung:</p>'
+    + '<div class="modellwahl">' + CLAUDE_MODELLE.map((m) => '<button class="' + (m.id === claudeModell ? "an" : "") + '" onclick="waehleClaude(\'' + m.id + '\')">'
+      + '<b>' + m.name + '</b><br><small>' + m.info + '</small></button>').join("") + '</div>'
+    + '<p><b>Google Gemini</b>: kostenlos, ohne Kreditkarte, Texte etwas einfacher. Key unter aistudio.google.com → „Get API key“.</p>'
+    + '<p>Der Key bleibt nur auf diesem Gerät gespeichert. Feld leeren und speichern entfernt ihn wieder.</p>'
+    + '<div class="knoepfe"><button class="haupt" onclick="speichereKey()"' + (S.keyTest ? " disabled" : "") + '>Speichern &amp; testen</button>'
+    + '<button class="klein" onclick="einstellungen(false)">Schließen</button></div>'
+    + (S.keyMeldung ? '<div class="meldung ' + (S.keyGut ? "gut" : "schlecht") + '">' + esc(S.keyMeldung) + '</div>' : '')
+    + '<p class="notiz">Speicher: ' + S.index.length + ' ' + (S.index.length === 1 ? "Buch" : "Bücher") + ', ca. ' + mb + ' MB von rund 5 MB belegt.</p>'
+    + '</section>';
+}
+
+function waehleClaude(id) {
+  if (!CLAUDE_MODELLE.some((m) => m.id === id)) return;
+  claudeModell = id; schreib("claudeModell", id); render();
+}
+
+/* Knopf an- und ausschalten, ohne neu zu zeichnen: Neuzeichnen würde das Tippen stören */
+function knopf() { const b = $("los"); if (b) b.disabled = !S.titel.trim(); }
+
+/* Kommt die App aus dem Hintergrund zurück und ist eine Anfrage dabei
+   gestorben, einmal automatisch weitermachen */
+document.addEventListener("visibilitychange", () => {
+  // iOS beendet die Sprachausgabe im Hintergrund: als Pause merken, statt „läuft“ anzuzeigen
+  if (document.visibilityState !== "visible") { if (V.an) vorStopp(true); return; }
+  if (S.ansicht === "generieren" && S.job && S.job.fehler && S.job.netz && !S.laeuft && !S.autoWeiter) {
+    S.autoWeiter = true; arbeite();
+  } else if (S.laeuft) wachHalten(true);
+});
+
+/* ================= Start ================= */
+(function start() {
+  S.index = lies("index", []);
+  S.job = lies("job", null);
+  S.minuten = lies("laenge", 30);
+  if (!LAENGEN.some((l) => l[0] === S.minuten)) S.minuten = 30;
+  ohneFallback = lies("ohneFallback", false);
+  const cm = lies("claudeModell", ""); if (CLAUDE_MODELLE.some((m) => m.id === cm)) claudeModell = cm;
+  S.schrift = SCHRIFTEN.includes(lies("schrift", 17)) ? lies("schrift", 17) : 17;
+  V.tempo = TEMPI.includes(lies("tempo", 1)) ? lies("tempo", 1) : 1;
+  S.sort = SORTIERUNGEN.some((s) => s[0] === lies("sort", "neu")) ? lies("sort", "neu") : "neu";
+  S.gesichert = lies("gesichert", "");
+  ladeKey();
+  try { gModel = localStorage.getItem(KEY + ":gmodel") || localStorage.getItem(ET + ":gmodel") || ""; } catch (e) {}
+  render();
+})();
+</script>
+</body>
+</html>
