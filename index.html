@@ -320,6 +320,8 @@ async function frageClaude(prompt, o) {
    - Modelle werden ständig umbenannt → Kandidatenkette, Erfolgreiches merken
    - Überlastung → nächstes Modell, danach einmal die ganze Kette nochmal
    - Tageskontingent leer → kein zweiter Durchlauf, Warten hilft nicht */
+/* Modelle, die thinkingConfig ablehnen (gilt bis zum Neuladen der App). */
+const OHNE_DENKEN = new Set();
 async function frageGemini(prompt, o) {
   const asJson = !!o.schema;
   const body = (mitDenken) => JSON.stringify(Object.assign(
@@ -339,7 +341,8 @@ async function frageGemini(prompt, o) {
     if (!res.ok) {
       let msg = "Server antwortet mit " + res.status;
       try { const eb = await res.json(); if (eb && eb.error && eb.error.message) msg = eb.error.message; } catch (_e) {}
-      const err = new Error(msg); err.code = res.status; throw err;
+      // Modellname anhängen: Sonst sieht man nie, welches Modell der Kette abgelehnt hat
+      const err = new Error(msg + " (Modell: " + model + ")"); err.code = res.status; throw err;
     }
     const d = await res.json();
     const c = d.candidates && d.candidates[0];
@@ -355,10 +358,22 @@ async function frageGemini(prompt, o) {
     else grund = "Das Modell hat nichts zurückgegeben" + (fr ? " (Grund: " + fr + ")" : "") + ".";
     const err = new Error(grund + " Modell: " + model + "."); err.code = 204; err.leer = true; throw err;
   };
+  /* Manche Modelle lehnen thinkingBudget:0 nur mit dem allgemeinen
+     "Request contains an invalid argument" ab, ohne das Wort thinking.
+     Auch dann einmal ohne den Zusatz versuchen. */
   const tryModel = async (model) => {
-    try { return await call(model, false); }
-    catch (e) { if (e.code === 400 && /thinking|thought/i.test(e.message || "")) return await call(model, true); throw e; }
+    try { return await call(model, OHNE_DENKEN.has(model)); }
+    catch (e) {
+      if (!OHNE_DENKEN.has(model) && e.code === 400 && /thinking|thought|invalid argument/i.test(e.message || "")) {
+        const t = await call(model, true);
+        OHNE_DENKEN.add(model);   // merken: spart beim nächsten Kapitel die doppelte Anfrage (Gratis-Limit pro Minute)
+        return t;
+      }
+      throw e;
+    }
   };
+  /* Bleibt es bei "invalid argument", passt dieses Modell nicht: nächstes nehmen statt abbrechen. */
+  const passtNicht = (e) => e.code === 400 && /invalid argument/i.test(e.message || "");
   const remember = (m) => { gModel = m; letztesModell = m; try { localStorage.setItem(KEY + ":gmodel", m); } catch (_e) {} };
   const modelGone = (e) => e.code === 404 || /not (available|found|supported)|deprecated|no longer|does not exist/i.test(e.message || "");
   const overloaded = (e) => e.code === 503 || e.code === 429 || /high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message || "");
@@ -370,7 +385,7 @@ async function frageGemini(prompt, o) {
     try { const t = await tryModel(m); remember(m); return t; }
     catch (e) {
       if (e.code === 400 && /api key/i.test(e.message || "")) throw new Error("Google akzeptiert den API-Key nicht. Bitte unter „Einstellungen“ prüfen.");
-      if (modelGone(e) || e.leer || tageslimit(e)) { lastErr = e; continue; }
+      if (modelGone(e) || e.leer || tageslimit(e) || passtNicht(e)) { lastErr = e; continue; }
       if (overloaded(e)) { sawOverload = true; lastErr = e; continue; }
       throw e;
     }
@@ -489,17 +504,33 @@ function starte() {
   arbeite();
 }
 
+/* Reißt die Verbindung ab (Funkzellenwechsel, kurzer App-Wechsel), selbst noch
+   zweimal versuchen, nach 4 und 10 Sekunden, solange die App im Vordergrund ist.
+   Erst danach anhalten und den Knopf zeigen. */
+async function geduldig(fn, j, aktiv) {
+  for (let v = 0; ; v++) {
+    try { const r = await fn(); if (j.status) { j.status = ""; render(); } return r; }
+    catch (e) {
+      if (!(e && e.netz) || v >= 2 || !aktiv() || document.visibilityState !== "visible") { j.status = ""; throw e; }
+      j.status = "Verbindung unterbrochen, neuer Versuch in " + (v ? 10 : 4) + " Sekunden …"; render();
+      await pause(v ? 10000 : 4000);
+      if (!aktiv()) throw e;
+      j.status = "Neuer Versuch …"; render();
+    }
+  }
+}
+
 async function arbeite() {
   const j = S.job; if (!j) return;
   const lauf = ++S.lauf;
   const aktiv = () => S.lauf === lauf;
-  S.laeuft = true; j.fehler = ""; S.ansicht = "generieren";
+  S.laeuft = true; j.fehler = ""; j.status = ""; S.ansicht = "generieren";
   render(); window.scrollTo(0, 0);
   wachHalten(true);
   try {
     if (!j.gliederung) {
       j.aktuell = -1;
-      const txt = await frageKI(gliederungPrompt(j), { schema: GLIEDERUNG_SCHEMA, effort: "medium", system: SYSTEM });
+      const txt = await geduldig(() => frageKI(gliederungPrompt(j), { schema: GLIEDERUNG_SCHEMA, effort: "medium", system: SYSTEM }), j, aktiv);
       if (!aktiv()) return;
       const g = parseJSON(txt);
       merkeModell(j);
@@ -518,7 +549,7 @@ async function arbeite() {
     for (let i = 0; i < j.kapitel.length; i++) {
       if (j.kapitel[i].text) continue;
       j.aktuell = i; render();
-      const txt = await frageKI(kapitelPrompt(j, i), { effort: "low", system: SYSTEM });
+      const txt = await geduldig(() => frageKI(kapitelPrompt(j, i), { effort: "low", system: SYSTEM }), j, aktiv);
       if (!aktiv()) return;
       j.kapitel[i].text = saeubere(txt);
       merkeModell(j);
@@ -775,6 +806,103 @@ async function spieleEin(datei) {
     + (voll ? " Der Speicher ist voll, die übrigen fehlen." : "");
   render();
 }
+/* ================= Markdown-Import ================= */
+/* Liest Zusammenfassungen im Format des eigenen Markdown-Exports, aber nachsichtig,
+   damit auch Dateien aus Claude.ai o. Ä. gehen: Titel aus "# …" (sonst Dateiname),
+   Autor aus "*…*" oder "Autor: …"/"Von …", Kernaussage aus "> …", Kapitel aus "## …"
+   (Nummern wie "3." oder "Kapitel 3:" werden entfernt). Text vor dem ersten Kapitel
+   wird zur "Einleitung", die Fußzeile des eigenen Exports fällt weg. */
+function mdZuBuch(md, dateiname) {
+  const ohneFormat = (s) => String(s).replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1").trim();
+  const trenner = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/;
+  let zeilen = String(md).replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
+  for (let i = zeilen.length - 1; i >= 0; i--) {
+    if (trenner.test(zeilen[i])) {
+      if (/KI-generiert|Halbe Stunde|Ersetzt nicht das Original/i.test(zeilen.slice(i).join(" "))) zeilen = zeilen.slice(0, i);
+      break;
+    }
+  }
+  let titel = "", autor = "", kern = "", kategorie = "";
+  const kapitel = [], vorne = [];
+  let akt = null;
+  for (const z of zeilen) {
+    const h1 = /^#\s+(.+)/.exec(z), h2 = /^##\s+(.+)/.exec(z);
+    if (h1 && !titel && !akt) { titel = ohneFormat(h1[1]); continue; }
+    if (h2) {
+      const t = ohneFormat(h2[1]).replace(/^(kapitel\s+\d+\s*[.:)\-–]?\s*|\d+\s*[.:)]\s+)/i, "").trim();
+      akt = { titel: t || "Kapitel " + (kapitel.length + 1), zeilen: [] };
+      kapitel.push(akt); continue;
+    }
+    (akt ? akt.zeilen : vorne).push(z);
+  }
+  const rest = [];
+  for (const z of vorne) {
+    const t = z.trim(); let m;
+    if (!t) { rest.push(z); continue; }
+    if (!kern && (m = /^>\s?(.*)/.exec(t))) { kern = ohneFormat(m[1]); continue; }
+    if (!autor && (m = /^(?:\*\*)?(?:autor(?:in)?|von)\s*:?\s*(?:\*\*)?\s*:?\s*(.+)$/i.exec(t)) && m[1].length < 80) { autor = ohneFormat(m[1]); continue; }
+    if (!autor && (m = /^[*_]([^*_].*?)[*_]$/.exec(t))) { autor = m[1].trim(); continue; }
+    if (t.includes("·") && /wörter|minuten|lesezeit/i.test(t)) {
+      const erst = t.split("·")[0].trim(); if (!/wörter|minuten/i.test(erst)) kategorie = ohneFormat(erst);
+      continue;
+    }
+    rest.push(z);
+  }
+  // Absätze: Leerzeilen trennen, Zeilen innerhalb eines Absatzes werden verbunden.
+  // Zwischenüberschriften und Aufzählungspunkte werden eigene Absätze.
+  const absaetze = (zs) => {
+    const out = []; let cur = [];
+    const flush = () => { if (cur.length) { out.push(cur.join(" ").replace(/\s+/g, " ").trim()); cur = []; } };
+    for (const z of zs) {
+      const t = z.trim(); let m;
+      if (!t || trenner.test(t)) { flush(); continue; }
+      if ((m = /^#{3,6}\s+(.+)/.exec(t))) { flush(); out.push(ohneFormat(m[1])); continue; }
+      if ((m = /^(?:[-*+•]|\d+[.)])\s+(.+)/.exec(t))) { flush(); out.push("– " + ohneFormat(m[1])); continue; }
+      cur.push(ohneFormat(t.replace(/^>\s?/, "")));
+    }
+    flush();
+    return out.filter(Boolean).join("\n\n");
+  };
+  const kap = kapitel.map((k) => ({ titel: k.titel, fokus: k.titel, text: absaetze(k.zeilen) })).filter((k) => k.text);
+  const einleitung = absaetze(rest);
+  if (einleitung) kap.unshift({ titel: kap.length ? "Einleitung" : "Zusammenfassung", fokus: "Einleitung", text: einleitung });
+  if (!kap.length) return null;
+  if (!titel) titel = String(dateiname || "").replace(/\.(md|markdown|txt)$/i, "").replace(/[-_]+/g, " ").trim() || "Ohne Titel";
+  const woerter = kap.reduce((s, k) => s + wortzahl(k.text), 0);
+  return { titel, autor, kategorie, kernaussage: kern, woerter, minuten: Math.max(1, Math.round(woerter / WPM)),
+    datum: heute(), kapitel: kap, modelle: [], quelle: "import" };
+}
+/* Nimmt eine oder mehrere Dateien: .json als Regal-Sicherung, alles andere als Markdown. */
+async function dateienEinspielen(liste) {
+  const dateien = [...(liste || [])];
+  if (!dateien.length) return;
+  const ok = [], doppelt = [], kaputt = [];
+  let voll = false, letztes = null, n = 0;
+  for (const f of dateien) {
+    const text = await f.text();
+    if (/\.json$/i.test(f.name) || /^\s*\{/.test(text)) { await spieleEin(f); continue; }
+    const b = mdZuBuch(text, f.name);
+    if (!b) { kaputt.push(f.name); continue; }
+    const gleich = (x, y) => String(x || "").trim().toLowerCase() === String(y || "").trim().toLowerCase();
+    if (S.index.some((e) => gleich(e.titel, b.titel) && gleich(e.autor, b.autor))) { doppelt.push(b.titel); continue; }
+    b.id = Date.now().toString(36) + (n++);
+    if (!schreib("buch:" + b.id, b)) { voll = true; break; }
+    S.index = [{ id: b.id, titel: b.titel, autor: b.autor, kategorie: b.kategorie, woerter: b.woerter, minuten: b.minuten, datum: b.datum, pos: 0 }, ...S.index];
+    schreib("index", S.index);
+    ok.push(b.titel); letztes = b;
+  }
+  if (!ok.length && !doppelt.length && !kaputt.length && !voll) return;   // nur JSON, Meldung kam schon
+  // Eine einzelne Datei gleich aufschlagen, das ist fast immer der Wunsch
+  if (ok.length === 1 && !doppelt.length && !kaputt.length && !voll) { oeffneBuch(letztes); return; }
+  S.fehler = "";
+  S.hinweis = (ok.length ? ok.length + " " + (ok.length === 1 ? "Zusammenfassung" : "Zusammenfassungen") + " eingespielt. " : "")
+    + (doppelt.length ? "Schon im Regal: " + doppelt.join(", ") + ". " : "")
+    + (kaputt.length ? "Keine Zusammenfassung erkannt in: " + kaputt.join(", ") + ". " : "")
+    + (voll ? "Der Speicher ist voll, die übrigen fehlen." : "");
+  render();
+}
+
 function tageSeit(iso) {
   const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ""); if (!m) return Infinity;
   return Math.floor((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 864e5);
@@ -879,6 +1007,7 @@ function renderLesen() {
     + '<p class="autor">' + esc(b.autor) + '</p>';
   if (b.kernaussage) h += '<p class="kern" data-vor="k">' + esc(b.kernaussage) + '</p>';
   h += '<p class="meta">' + [esc(b.kategorie), zahl(b.woerter) + " Wörter", "ca. " + b.minuten + " Minuten Lesezeit"].filter(Boolean).join(" · ") + '</p>';
+  if (b.quelle === "import") h += '<p class="meta">Aus einer Markdown-Datei eingespielt.</p>';
   const mods = b.modelle || [];
   if (mods.length) {
     h += '<p class="meta">Geschrieben mit ' + esc(mods.join(", ")) + '.'
@@ -914,6 +1043,7 @@ function renderGenerieren() {
   let status;
   if (j.fehler) status = j.gliederung ? "Angehalten bei Kapitel " + (fertig + 1) + " von " + n + "." : "Angehalten bei der Gliederung.";
   else if (!S.laeuft) status = "Pausiert, " + fertig + " von " + n + " Kapiteln fertig.";
+  else if (j.status) status = j.status;
   else if (!j.gliederung) status = "Gliederung wird erstellt …";
   else status = "Kapitel " + Math.min(fertig + 1, n) + " von " + n + " wird geschrieben …";
 
@@ -988,10 +1118,11 @@ function renderBibliothek() {
     }
   }
 
-  h += '<input type="file" id="importDatei" accept=".json,application/json" style="display:none" onchange="spieleEin(this.files[0])">';
+  // Ohne accept: iOS graut .md-Dateien sonst teils aus. Der Inhalt wird beim Einlesen geprüft.
+  h += '<input type="file" id="importDatei" multiple style="display:none" onchange="dateienEinspielen(this.files)">';
   h += '<div class="fuss" style="display:flex;gap:18px;flex-wrap:wrap">'
     + (S.index.length ? '<button onclick="sichereRegal()">Regal sichern</button>' : '')
-    + '<button onclick="waehleSicherung()">Sicherung einspielen</button>'
+    + '<button onclick="waehleSicherung()">Datei einspielen (.json / .md)</button>'
     + '<button onclick="einstellungen(' + (!S.einst) + ')">Einstellungen</button></div>';
   h += '<div>';
   if (S.einst) h += renderEinstellungen();
