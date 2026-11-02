@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; media-src blob: data:; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'">
 <meta name="theme-color" content="#FCFBF6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -825,6 +826,22 @@ async function sichereRegal() {
   render();
 }
 function waehleSicherung() { const f = $("importDatei"); if (f) { f.value = ""; f.click(); } }
+/* Eine Sicherungsdatei kann von außen kommen: nur bekannte Felder mit passendem Typ übernehmen. */
+function buchSauber(b) {
+  const txt = (s, n) => typeof s === "string" ? s.slice(0, n) : "";
+  const ganz = (z, min) => Number.isFinite(Number(z)) && Number(z) >= min ? Math.round(Number(z)) : min;
+  const kapitel = b.kapitel.filter((k) => k && typeof k.text === "string").map((k) => {
+    const x = { titel: txt(k.titel, 300), text: k.text };
+    if (typeof k.fokus === "string") x.fokus = k.fokus.slice(0, 2000);
+    return x;
+  });
+  const x = { id: String(b.id), titel: txt(b.titel, 300), autor: txt(b.autor, 200), kategorie: txt(b.kategorie, 100),
+    kernaussage: txt(b.kernaussage, 3000), woerter: ganz(b.woerter, 0), minuten: ganz(b.minuten, 1),
+    datum: /^\d{4}-\d\d-\d\d$/.test(b.datum) ? b.datum : heute(), kapitel };
+  if (Array.isArray(b.modelle)) x.modelle = b.modelle.filter((m) => typeof m === "string").map((m) => m.slice(0, 80));
+  if (b.quelle === "import") x.quelle = "import";
+  return x;
+}
 async function spieleEin(datei) {
   if (!datei) return;
   const kaputt = "Die Datei ist keine Sicherung von Halbe Stunde.";
@@ -834,14 +851,17 @@ async function spieleEin(datei) {
   const vorhanden = new Set(S.index.map((e) => e.id));
   const meta = new Map((Array.isArray(d.index) ? d.index : []).map((e) => [e && e.id, e]));
   let neu = 0, doppelt = 0, voll = false;
-  for (const b of d.buecher) {
+  for (const roh of d.buecher) {
     // Die id landet später in onclick-Attributen, deshalb nur harmlose Zeichen zulassen
-    if (!b || !/^[a-z0-9]{1,20}$/i.test(String(b.id)) || !b.titel || !Array.isArray(b.kapitel)) continue;
+    if (!roh || !/^[a-z0-9]{1,20}$/i.test(String(roh.id)) || typeof roh.titel !== "string" || !roh.titel.trim() || !Array.isArray(roh.kapitel)) continue;
+    const b = buchSauber(roh);
+    if (!b.kapitel.length) continue;
     if (vorhanden.has(b.id)) { doppelt++; continue; }
     if (!schreib("buch:" + b.id, b)) { voll = true; break; }
     const m = meta.get(b.id) || {};
-    S.index.push({ id: b.id, titel: b.titel, autor: b.autor || "", kategorie: b.kategorie || "",
-      woerter: b.woerter || 0, minuten: b.minuten || 1, datum: b.datum || heute(), pos: m.pos || 0, gelesen: !!m.gelesen });
+    const pos = Number(m.pos);
+    S.index.push({ id: b.id, titel: b.titel, autor: b.autor, kategorie: b.kategorie,
+      woerter: b.woerter, minuten: b.minuten, datum: b.datum, pos: pos >= 0 && pos <= 100 ? Math.round(pos) : 0, gelesen: m.gelesen === true });
     vorhanden.add(b.id); neu++;
   }
   S.index.sort((x, y) => String(y.datum).localeCompare(String(x.datum)));
@@ -970,11 +990,11 @@ function regalHtml() {
   if (!l.length) return '<p class="leer">Kein Buch passt zu dieser Suche.</p>';
   let h = "";
   l.forEach((b) => {
-    const stand = b.gelesen ? "gelesen" : b.pos > 2 ? "zu " + b.pos + " % gelesen" : "";
+    const stand = b.gelesen ? "gelesen" : b.pos > 2 ? "zu " + esc(b.pos) + " % gelesen" : "";
     h += '<div class="eintrag"><div class="ruecken' + (b.gelesen ? " gelesen" : "") + '"></div>'
       + '<div class="info" onclick="oeffne(\'' + esc(b.id) + '\')"><div class="t">' + esc(b.titel) + '</div>'
       + '<div class="a">' + esc(b.autor) + '</div>'
-      + '<div class="m">' + ["ca. " + b.minuten + " Min.", esc(b.kategorie), datumDe(b.datum), stand].filter(Boolean).join(" · ") + '</div></div>';
+      + '<div class="m">' + ["ca. " + esc(b.minuten) + " Min.", esc(b.kategorie), esc(datumDe(b.datum)), stand].filter(Boolean).join(" · ") + '</div></div>';
     if (S.loeschFrage === b.id) {
       h += '<div class="frage"><button class="klein gefahr" onclick="loesche(\'' + esc(b.id) + '\')">Löschen</button>'
         + '<button class="klein" onclick="S.loeschFrage=null;render()">Behalten</button></div>';
@@ -1046,14 +1066,14 @@ function renderLesen() {
     + (TTS ? '<button id="tempoBtn" onclick="tempo()" aria-label="Vorlesetempo" style="display:none"></button>'
       + '<button id="vorBtn" onclick="vorlesen()">▶ Vorlesen</button>' : '')
     + '</div></div><div class="spur"><div id="spur" style="width:0%"></div></div>'
-    + '<div class="rest" id="rest">ca. ' + b.minuten + ' Min.</div>'
+    + '<div class="rest" id="rest">ca. ' + esc(b.minuten) + ' Min.</div>'
     + '<div class="vorhinweis" id="vorHinweis" hidden></div></div>';
   // data-vor markiert, was vorgelesen wird; data-sprich ersetzt den sichtbaren Text beim Vorlesen
   h += '<article style="--lese:' + S.schrift + 'px"><header><div class="marke"></div>'
     + '<h1 data-vor="t" data-sprich="' + esc(b.titel + (b.autor ? ". Von " + b.autor : "")) + '">' + esc(b.titel) + '</h1>'
     + '<p class="autor">' + esc(b.autor) + '</p>';
   if (b.kernaussage) h += '<p class="kern" data-vor="k">' + esc(b.kernaussage) + '</p>';
-  h += '<p class="meta">' + [esc(b.kategorie), zahl(b.woerter) + " Wörter", "ca. " + b.minuten + " Minuten Lesezeit"].filter(Boolean).join(" · ") + '</p>';
+  h += '<p class="meta">' + [esc(b.kategorie), zahl(b.woerter) + " Wörter", "ca. " + esc(b.minuten) + " Minuten Lesezeit"].filter(Boolean).join(" · ") + '</p>';
   if (b.quelle === "import") h += '<p class="meta">Aus einer Markdown-Datei eingespielt.</p>';
   const mods = b.modelle || [];
   if (mods.length) {
